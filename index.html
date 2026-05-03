@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="QuickBill">
+<meta name="theme-color" content="#0f0f0f">
+<title>QuickBill POS</title>
+<link rel="manifest" href="manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --surface2: #242424;
+    --surface3: #2e2e2e;
+    --border: #333;
+    --accent: #FF6B35;
+    --accent2: #FFB347;
+    --green: #4CAF82;
+    --red: #E05252;
+    --blue: #4A90D9;
+    --purple: #9B59B6;
+    --text: #f0f0f0;
+    --text2: #a0a0a0;
+    --text3: #666;
+    --radius: 12px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow: hidden; touch-action: manipulation; }
+
+  /* ─── SYNC STATUS BAR ─── */
+  .sync-bar {
+    position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 999;
+    background: var(--surface3); overflow: hidden;
+  }
+  .sync-bar-inner {
+    height: 100%; background: var(--green); width: 0%; transition: width 0.3s ease;
+  }
+  .sync-bar-inner.syncing { animation: syncPulse 1.5s infinite; }
+  @keyframes syncPulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ─── TOP BAR ─── */
+  .topbar {
+    height: 58px; background: var(--surface); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 16px; gap: 12px;
+    position: fixed; top: 3px; left: 0; right: 0; z-index: 100;
+  }
+  .logo { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; flex-shrink: 0; }
+  .logo span { color: var(--text2); font-weight: 400; font-size: 11px; margin-left: 6px; }
+  .topbar-center { flex: 1; display: flex; justify-content: center; gap: 4px; overflow-x: auto; }
+  .topbar-center::-webkit-scrollbar { display: none; }
+  .nav-btn {
+    padding: 7px 14px; border-radius: 8px; border: none; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+    background: transparent; color: var(--text2); transition: all 0.15s; white-space: nowrap; flex-shrink: 0;
+  }
+  .nav-btn.active, .nav-btn:hover { background: var(--surface3); color: var(--text); }
+  .nav-btn.active { color: var(--accent); }
+  .topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .sync-btn {
+    width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface3); color: var(--text2); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: 15px;
+    transition: all 0.15s;
+  }
+  .sync-btn:hover { border-color: var(--green); color: var(--green); }
+  .sync-btn.syncing { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .table-chip { background: var(--surface3); border: 1px solid var(--border); color: var(--text2); font-size: 11px; padding: 5px 10px; border-radius: 6px; }
+
+  /* ─── MAIN LAYOUT ─── */
+  .main { display: flex; height: calc(100vh - 61px); margin-top: 61px; }
+
+  /* ─── LEFT: MENU PANEL ─── */
+  .menu-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+  .search-bar {
+    padding: 10px 12px; background: var(--surface);
+    border-bottom: 1px solid var(--border); display: flex; gap: 8px; align-items: center;
+  }
+  .search-bar input {
+    flex: 1; background: var(--surface3); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none;
+    transition: border 0.15s;
+  }
+  .search-bar input:focus { border-color: var(--accent); }
+  .search-bar input::placeholder { color: var(--text3); }
+
+  .cat-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .cat-tabs::-webkit-scrollbar { display: none; }
+  .cat-tab {
+    padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
+    cursor: pointer; font-size: 11px; font-weight: 500; white-space: nowrap;
+    background: transparent; color: var(--text2); transition: all 0.15s;
+  }
+  .cat-tab.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .cat-tab:hover:not(.active) { background: var(--surface3); color: var(--text); }
+
+  .items-grid { flex: 1; overflow-y: auto; padding: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  .items-grid::-webkit-scrollbar { width: 4px; }
+  .items-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .item-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 12px 10px; cursor: pointer; transition: all 0.15s; position: relative; user-select: none;
+  }
+  .item-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow); }
+  .item-card:active { transform: scale(0.97); }
+  .item-emoji { font-size: 24px; margin-bottom: 6px; display: block; }
+  .item-name { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.3; margin-bottom: 3px; }
+  .item-price { font-size: 14px; font-weight: 700; color: var(--accent); }
+  .item-type { position: absolute; top: 8px; right: 8px; width: 10px; height: 10px; border-radius: 2px; border: 1.5px solid; }
+  .veg { border-color: var(--green); }
+  .veg::after { content: ''; width: 4px; height: 4px; background: var(--green); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+  .nonveg { border-color: var(--red); }
+  .nonveg::after { content: ''; width: 4px; height: 4px; background: var(--red); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+  .item-qty-badge {
+    position: absolute; top: -6px; left: -6px; background: var(--accent); color: white;
+    font-size: 11px; font-weight: 700; width: 20px; height: 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; display: none;
+  }
+  .item-card.in-cart .item-qty-badge { display: flex; }
+  .item-card.in-cart { border-color: var(--accent); background: #1f1510; }
+
+  /* ─── RIGHT: ORDER PANEL ─── */
+  .order-panel { width: 320px; background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+  .order-header { padding: 12px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .order-title { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; }
+  .order-meta { display: flex; gap: 6px; align-items: center; }
+  .table-select {
+    background: var(--surface3); border: 1px solid var(--border); color: var(--text);
+    padding: 5px 8px; border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 12px; outline: none; cursor: pointer;
+  }
+  .clear-btn { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 11px; padding: 5px 8px; border-radius: 6px; transition: all 0.15s; }
+  .clear-btn:hover { color: var(--red); background: rgba(224,82,82,0.1); }
+
+  .order-items { flex: 1; overflow-y: auto; padding: 8px; }
+  .order-items::-webkit-scrollbar { width: 3px; }
+  .order-items::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .empty-order { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text3); gap: 10px; }
+  .empty-order .icon { font-size: 36px; opacity: 0.3; }
+  .empty-order p { font-size: 13px; }
+
+  .order-row {
+    display: flex; align-items: center; gap: 6px; padding: 8px 6px; border-radius: 8px;
+    border-bottom: 1px solid var(--surface3); transition: background 0.1s;
+  }
+  .order-row:hover { background: var(--surface3); }
+  .order-row-name { flex: 1; font-size: 12px; font-weight: 500; line-height: 1.3; }
+  .order-row-price { font-size: 12px; font-weight: 600; color: var(--accent2); min-width: 50px; text-align: right; }
+  .qty-ctrl { display: flex; align-items: center; gap: 3px; }
+  .qty-btn {
+    width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--border);
+    background: var(--surface3); color: var(--text); cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; justify-content: center; transition: all 0.1s;
+  }
+  .qty-btn:hover { background: var(--accent); border-color: var(--accent); }
+  .qty-num { font-size: 12px; font-weight: 600; min-width: 18px; text-align: center; }
+
+  /* ─── BILL SUMMARY ─── */
+  .bill-summary { border-top: 1px solid var(--border); padding: 10px 14px; }
+  .bill-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text2); margin-bottom: 5px; }
+  .bill-row.total { color: var(--text); font-weight: 700; font-size: 15px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border); }
+  .discount-row { display: flex; gap: 6px; margin: 6px 0; }
+  .discount-input {
+    flex: 1; background: var(--surface3); border: 1px solid var(--border); color: var(--text);
+    padding: 5px 8px; border-radius: 6px; font-size: 12px; font-family: 'DM Sans', sans-serif; outline: none;
+  }
+  .discount-input:focus { border-color: var(--accent); }
+  .apply-btn {
+    padding: 5px 10px; background: var(--surface3); border: 1px solid var(--border); color: var(--text2);
+    border-radius: 6px; font-size: 11px; cursor: pointer; transition: all 0.15s;
+  }
+  .apply-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ─── ACTION BUTTONS ─── */
+  .order-actions { padding: 10px 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 7px; padding-bottom: calc(10px + var(--safe-bottom)); }
+  .pay-methods { display: flex; gap: 5px; }
+  .pay-btn {
+    flex: 1; padding: 7px 3px; border-radius: 7px; border: 1px solid var(--border);
+    background: var(--surface3); color: var(--text2); font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; text-align: center;
+  }
+  .pay-btn.active { border-color: var(--accent); background: rgba(255,107,53,0.15); color: var(--accent); }
+  .action-row { display: flex; gap: 7px; }
+  .kot-btn {
+    flex: 1; padding: 11px; border-radius: var(--radius); border: 1.5px solid var(--blue);
+    background: rgba(74,144,217,0.1); color: var(--blue); font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s;
+  }
+  .kot-btn:hover { background: var(--blue); color: white; }
+  .print-btn {
+    flex: 1.5; padding: 11px; border-radius: var(--radius); border: none;
+    background: var(--accent); color: white; font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s;
+  }
+  .print-btn:hover { background: #e55a25; }
+  .print-btn:active { transform: scale(0.98); }
+
+  /* ─── PAGES ─── */
+  .page { display: none; }
+  .page.active { display: flex; flex: 1; height: 100%; }
+
+  /* ─── TABLES PAGE ─── */
+  .tables-page { padding: 20px; overflow-y: auto; flex-wrap: wrap; align-content: flex-start; gap: 12px; }
+  .page-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; margin-bottom: 16px; width: 100%; }
+  .table-card {
+    width: 130px; height: 130px; border-radius: 14px; border: 2px solid var(--border);
+    background: var(--surface); cursor: pointer; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 6px; transition: all 0.15s; position: relative;
+  }
+  .table-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .table-card.occupied { border-color: var(--green); background: #0d1f16; }
+  .table-card .t-num { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; }
+  .table-card .t-label { font-size: 11px; color: var(--text2); }
+  .table-card .t-amount { font-size: 12px; font-weight: 700; color: var(--green); }
+  .status-dot { position: absolute; top: 10px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+  .table-card.occupied .status-dot { background: var(--green); }
+
+  /* ─── REPORTS PAGE ─── */
+  .reports-page { padding: 20px; overflow-y: auto; flex-direction: column; gap: 16px; }
+  .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  @media (min-width: 800px) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .stat-label { font-size: 11px; color: var(--text2); margin-bottom: 6px; }
+  .stat-value { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; }
+  .stat-value.green { color: var(--green); }
+  .stat-value.orange { color: var(--accent); }
+  .stat-value.blue { color: var(--blue); }
+  .orders-table { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; overflow-x: auto; }
+  .orders-table table { width: 100%; border-collapse: collapse; min-width: 500px; }
+  .orders-table th { padding: 10px 14px; font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; text-align: left; border-bottom: 1px solid var(--border); }
+  .orders-table td { padding: 10px 14px; font-size: 12px; border-bottom: 1px solid var(--border); }
+  .orders-table tr:last-child td { border-bottom: none; }
+  .orders-table tr:hover td { background: var(--surface3); }
+
+  /* ─── MENU MANAGER ─── */
+  .menu-mgr-page { padding: 20px; overflow-y: auto; flex-direction: column; gap: 14px; }
+  .mgr-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .mgr-toolbar input, .mgr-toolbar select {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 12px; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none;
+  }
+  .mgr-toolbar input { flex: 1; min-width: 150px; }
+  .add-item-btn {
+    padding: 9px 16px; background: var(--accent); border: none; border-radius: 8px;
+    color: white; font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s;
+  }
+  .add-item-btn:hover { background: #e55a25; }
+  .mgr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .mgr-item-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; display: flex; align-items: center; gap: 10px; }
+  .mgr-emoji { font-size: 26px; }
+  .mgr-info { flex: 1; }
+  .mgr-name { font-weight: 600; font-size: 13px; }
+  .mgr-cat { font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .mgr-price { font-weight: 700; color: var(--accent); font-size: 14px; }
+  .mgr-del { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 15px; padding: 4px; border-radius: 4px; transition: all 0.1s; }
+  .mgr-del:hover { color: var(--red); background: rgba(224,82,82,0.1); }
+  .toggle-veg { font-size: 10px; padding: 3px 7px; border-radius: 20px; border: 1px solid; cursor: pointer; background: none; font-family: 'DM Sans', sans-serif; }
+  .toggle-veg.veg-active { border-color: var(--green); color: var(--green); }
+  .toggle-veg.nonveg-active { border-color: var(--red); color: var(--red); }
+
+  /* ─── SETTINGS ─── */
+  .settings-page { padding: 20px; overflow-y: auto; flex-direction: column; gap: 16px; }
+  .settings-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+  .settings-section h4 { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; margin-bottom: 14px; color: var(--accent); }
+  .settings-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 10px; flex-wrap: wrap; }
+  .settings-row label { font-size: 12px; color: var(--text2); flex-shrink: 0; }
+  .settings-row input, .settings-row textarea {
+    background: var(--surface3); border: 1px solid var(--border); color: var(--text);
+    padding: 7px 10px; border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 12px; outline: none; flex: 1; min-width: 160px;
+  }
+  .settings-row input:focus, .settings-row textarea:focus { border-color: var(--accent); }
+  .save-settings-btn { padding: 10px 22px; background: var(--accent); border: none; border-radius: 8px; color: white; font-family: 'Syne', sans-serif; font-weight: 700; cursor: pointer; font-size: 13px; }
+
+  /* ─── GOOGLE SYNC SECTION ─── */
+  .sync-status { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--surface3); border-radius: 8px; margin-bottom: 10px; }
+  .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
+  .sync-dot.connected { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .sync-dot.error { background: var(--red); }
+  .sync-text { font-size: 12px; color: var(--text2); flex: 1; }
+  .test-sync-btn { padding: 5px 12px; background: var(--surface); border: 1px solid var(--border); color: var(--text2); border-radius: 6px; font-size: 11px; cursor: pointer; transition: all 0.15s; }
+  .test-sync-btn:hover { border-color: var(--green); color: var(--green); }
+
+  /* ─── MODAL ─── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 22px; width: 100%; max-width: 400px; box-shadow: var(--shadow); }
+  .modal h3 { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 700; margin-bottom: 16px; }
+  .form-group { margin-bottom: 10px; }
+  .form-group label { display: block; font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+  .form-group input, .form-group select {
+    width: 100%; background: var(--surface3); border: 1px solid var(--border); color: var(--text);
+    padding: 9px 12px; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none; transition: border 0.15s;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+  .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .modal-cancel { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: none; color: var(--text2); cursor: pointer; font-size: 13px; }
+  .modal-save { flex: 2; padding: 10px; border-radius: 8px; border: none; background: var(--accent); color: white; font-family: 'Syne', sans-serif; font-weight: 700; cursor: pointer; font-size: 13px; }
+
+  /* ─── PRINT ─── */
+  .print-area { display: none; }
+  @media print {
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body > *:not(#printArea) { display: none !important; }
+    body { background: #fff !important; margin: 0; padding: 0; }
+    .print-area {
+      display: block !important;
+      width: 100%;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #000 !important;
+      background: #fff !important;
+      margin: 0;
+      padding: 0;
+    }
+  }
+
+  /* ─── TOASTS ─── */
+  .toast-container { position: fixed; bottom: 20px; right: 16px; z-index: 999; display: flex; flex-direction: column; gap: 6px; }
+  .toast { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 9px 14px; font-size: 12px; box-shadow: var(--shadow); animation: slideUp 0.2s ease; max-width: 240px; }
+  .toast.success { border-color: var(--green); color: var(--green); }
+  .toast.error { border-color: var(--red); color: var(--red); }
+  .toast.info { border-color: var(--blue); color: var(--blue); }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ─── MOBILE RESPONSIVE ─── */
+  @media (max-width: 640px) {
+    .order-panel { display: none; }
+    .order-panel.mobile-open { display: flex; position: fixed; inset: 61px 0 0 0; z-index: 90; width: 100%; }
+    .menu-panel { display: flex; }
+    .menu-panel.mobile-hidden { display: none; }
+    .mobile-cart-toggle {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      z-index: 95; background: var(--accent); color: white; border: none;
+      padding: 12px 28px; border-radius: 30px; font-family: 'Syne', sans-serif;
+      font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 24px rgba(255,107,53,0.5);
+      display: flex; align-items: center; gap: 8px; transition: all 0.15s;
+    }
+    .mobile-cart-toggle:active { transform: translateX(-50%) scale(0.97); }
+    .cart-count-badge {
+      background: white; color: var(--accent); font-size: 11px; font-weight: 800;
+      width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    }
+  }
+  @media (min-width: 641px) {
+    .mobile-cart-toggle { display: none !important; }
+  }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- SYNC BAR -->
+<div class="sync-bar"><div class="sync-bar-inner" id="syncBar"></div></div>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">QuickBill<span>POS</span></div>
+  <div class="topbar-center">
+    <button class="nav-btn active" onclick="showPage('pos')">🍽 Order</button>
+    <button class="nav-btn" onclick="showPage('tables')">🪑 Tables</button>
+    <button class="nav-btn" onclick="showPage('reports')">📊 Reports</button>
+    <button class="nav-btn" onclick="showPage('menu')">🍳 Menu</button>
+    <button class="nav-btn" onclick="showPage('settings')">⚙️ Settings</button>
+  </div>
+  <div class="topbar-right">
+    <button class="sync-btn" id="syncBtn" onclick="syncToSheets()" title="Sync to Google Sheets">☁</button>
+    <div class="table-chip" id="topTableChip">Table: T1</div>
+  </div>
+</div>
+
+<!-- MOBILE CART TOGGLE -->
+<button class="mobile-cart-toggle" id="mobileCartToggle" onclick="toggleMobileCart()">
+  🛒 View Cart <span class="cart-count-badge" id="cartCountBadge">0</span>
+</button>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- POS PAGE -->
+  <div id="posPage" class="page active" style="flex:1;flex-direction:row;">
+    <div class="menu-panel" id="menuPanel">
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="🔍 Search menu..." oninput="filterItems()">
+      </div>
+      <div class="cat-tabs" id="catTabs"></div>
+      <div class="items-grid" id="itemsGrid"></div>
+    </div>
+    <div class="order-panel" id="orderPanel">
+      <div class="order-header">
+        <div class="order-title">Current Order</div>
+        <div class="order-meta">
+          <select class="table-select" id="tableSelect" onchange="updateTableChip()">
+            <option>T1</option><option>T2</option><option>T3</option><option>T4</option>
+            <option>T5</option><option>T6</option><option>T7</option><option>T8</option>
+            <option>Takeaway</option><option>Delivery</option>
+          </select>
+          <button class="clear-btn" onclick="clearOrder()">✕ Clear</button>
+        </div>
+      </div>
+      <div class="order-items" id="orderList">
+        <div class="empty-order"><div class="icon">🛒</div><p>Tap items to add</p></div>
+      </div>
+      <div id="billSummary" style="display:none;">
+        <div class="bill-summary">
+          <div class="discount-row">
+            <input type="number" class="discount-input" id="discountInput" placeholder="Discount %" min="0" max="100" oninput="calcBill()">
+            <button class="apply-btn" onclick="calcBill()">Apply</button>
+          </div>
+          <div class="bill-row"><span>Subtotal</span><span id="subtotalVal">₹0</span></div>
+          <div class="bill-row"><span>Discount</span><span id="discountVal">-₹0</span></div>
+          <div class="bill-row"><span id="gstLabel">GST (5%)</span><span id="gstVal">₹0</span></div>
+          <div class="bill-row total"><span>TOTAL</span><span id="totalVal">₹0</span></div>
+        </div>
+        <div class="order-actions">
+          <div class="pay-methods">
+            <button class="pay-btn active" onclick="selectPay(this,'cash')">💵 Cash</button>
+            <button class="pay-btn" onclick="selectPay(this,'upi')">📱 UPI</button>
+            <button class="pay-btn" onclick="selectPay(this,'card')">💳 Card</button>
+          </div>
+          <div class="action-row">
+            <button class="kot-btn" onclick="printKOT()">KOT</button>
+            <button class="print-btn" onclick="printBill()">🧾 Bill & Pay</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLES PAGE -->
+  <div id="tablesPage" class="page tables-page">
+    <div id="tablesGrid"></div>
+  </div>
+
+  <!-- REPORTS PAGE -->
+  <div id="reportsPage" class="page reports-page">
+    <div class="page-title">📊 Sales Reports</div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-label">Today's Revenue</div><div class="stat-value green" id="rTotalSales">₹0</div></div>
+      <div class="stat-card"><div class="stat-label">Total Orders</div><div class="stat-value orange" id="rOrders">0</div></div>
+      <div class="stat-card"><div class="stat-label">Avg Order Value</div><div class="stat-value blue" id="rAvg">₹0</div></div>
+      <div class="stat-card"><div class="stat-label">Items Sold</div><div class="stat-value" id="rItems">0</div></div>
+    </div>
+    <div class="orders-table">
+      <table>
+        <thead><tr><th>Bill No</th><th>Table</th><th>Items</th><th>Payment</th><th>Total</th><th>Time</th></tr></thead>
+        <tbody id="ordersTableBody"><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:30px;">No orders yet</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MENU MANAGER PAGE -->
+  <div id="menuPage" class="page menu-mgr-page">
+    <div class="page-title">🍳 Menu Manager</div>
+    <div class="mgr-toolbar">
+      <input type="text" id="mgrSearch" placeholder="Search items..." oninput="renderMgrGrid()">
+      <select id="mgrCatFilter" onchange="renderMgrGrid()"><option value="">All Categories</option></select>
+      <button class="add-item-btn" onclick="openAddModal()">+ Add Item</button>
+    </div>
+    <div class="mgr-grid" id="mgrGrid"></div>
+  </div>
+
+  <!-- SETTINGS PAGE -->
+  <div id="settingsPage" class="page settings-page">
+    <div class="page-title">⚙️ Settings</div>
+
+    <!-- Google Sheets Sync -->
+    <div class="settings-section">
+      <h4>☁️ Google Sheets Sync</h4>
+      <div class="sync-status">
+        <div class="sync-dot" id="syncDot"></div>
+        <div class="sync-text" id="syncStatusText">Not configured — paste your Script URL below</div>
+        <button class="test-sync-btn" onclick="testConnection()">Test</button>
+      </div>
+      <div class="settings-row">
+        <label>Script URL</label>
+        <input type="url" id="settingScriptUrl" placeholder="Paste Google Apps Script Web App URL here">
+      </div>
+      <p style="font-size:11px;color:var(--text3);margin-bottom:10px;">
+        Follow the setup guide in the README file to get your Script URL from Google Apps Script.
+      </p>
+      <button class="save-settings-btn" onclick="saveSettings()" style="margin-right:8px;">Save</button>
+      <button class="save-settings-btn" style="background:var(--green);" onclick="manualSync()">☁ Sync Now</button>
+    </div>
+
+    <!-- Cafe Info -->
+    <div class="settings-section">
+      <h4>🏪 Cafe Information</h4>
+      <div class="settings-row"><label>Cafe Name</label><input id="settingName" value="My Cafe"></div>
+      <div class="settings-row"><label>Address</label><input id="settingAddress" value="Your Address Here"></div>
+      <div class="settings-row"><label>Phone</label><input id="settingPhone" value="+91 00000 00000"></div>
+      <div class="settings-row"><label>GSTIN</label><input id="settingGST" value="GSTIN NUMBER"></div>
+      <div class="settings-row"><label>GST Rate (%)</label><input type="number" id="settingGSTRate" value="5" min="0" max="28"></div>
+      <div class="settings-row"><label>Receipt Footer</label><input id="settingFooter" value="Thank you for visiting!"></div>
+      <button class="save-settings-btn" onclick="saveSettings()">Save Settings</button>
+    </div>
+
+    <!-- Install as App -->
+    <div class="settings-section">
+      <h4>📱 Install as App</h4>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:14px;">Install QuickBill on any device so it opens like a real app — no App Store needed, completely free!</p>
+
+      <!-- Auto install button for Chrome desktop/Android -->
+      <div id="autoInstallWrap" style="display:none;margin-bottom:14px;">
+        <div style="background:rgba(255,107,53,0.1);border:1px solid var(--accent);border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;">
+          <span style="font-size:28px;">🎉</span>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;">Ready to Install!</div>
+            <div style="font-size:11px;color:var(--text2);">Click below to install QuickBill as an app on this device</div>
+          </div>
+          <button class="save-settings-btn" id="installBtn" onclick="installApp()" style="white-space:nowrap;">📲 Install Now</button>
+        </div>
+      </div>
+
+      <!-- Device-specific step-by-step guides -->
+      <div id="installGuideAndroid" style="display:none;">
+        <div style="background:var(--surface3);border-radius:10px;padding:14px;margin-bottom:10px;">
+          <div style="font-size:13px;font-weight:700;color:#4CAF82;margin-bottom:10px;">🤖 Android — Chrome (Detected)</div>
+          <div style="font-size:12px;color:var(--text2);line-height:2;">
+            <span style="color:var(--accent);font-weight:700;">Step 1</span> — Open this app in <strong style="color:var(--text);">Chrome browser</strong><br>
+            <span style="color:var(--accent);font-weight:700;">Step 2</span> — Tap the <strong style="color:var(--text);">⋮ three dots</strong> menu (top right)<br>
+            <span style="color:var(--accent);font-weight:700;">Step 3</span> — Tap <strong style="color:var(--text);">"Add to Home Screen"</strong> or <strong style="color:var(--text);">"Install App"</strong><br>
+            <span style="color:var(--accent);font-weight:700;">Step 4</span> — Tap <strong style="color:var(--text);">"Install"</strong> on the popup ✅
+          </div>
+        </div>
+      </div>
+
+      <div id="installGuideIOS" style="display:none;">
+        <div style="background:var(--surface3);border-radius:10px;padding:14px;margin-bottom:10px;">
+          <div style="font-size:13px;font-weight:700;color:#4A90D9;margin-bottom:10px;">🍎 iPhone / iPad (Detected)</div>
+          <div style="font-size:12px;color:var(--text2);line-height:2;">
+            <span style="color:var(--accent);font-weight:700;">Step 1</span> — Open this app in <strong style="color:var(--text);">Safari</strong> (not Chrome)<br>
+            <span style="color:var(--accent);font-weight:700;">Step 2</span> — Tap the <strong style="color:var(--text);">Share button ⬆</strong> at the bottom<br>
+            <span style="color:var(--accent);font-weight:700;">Step 3</span> — Scroll down and tap <strong style="color:var(--text);">"Add to Home Screen"</strong><br>
+            <span style="color:var(--accent);font-weight:700;">Step 4</span> — Tap <strong style="color:var(--text);">"Add"</strong> (top right) ✅
+          </div>
+          <div style="margin-top:10px;padding:8px;background:rgba(255,107,53,0.1);border-radius:6px;font-size:11px;color:var(--accent);">
+            ⚠️ Must use Safari on iPhone — Chrome on iPhone cannot install apps
+          </div>
+        </div>
+      </div>
+
+      <div id="installGuideDesktop">
+        <div style="background:var(--surface3);border-radius:10px;padding:14px;margin-bottom:10px;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;">💻 Laptop / Desktop — Chrome</div>
+          <div style="font-size:12px;color:var(--text2);line-height:2;">
+            <span style="color:var(--accent);font-weight:700;">Step 1</span> — Open this app in <strong style="color:var(--text);">Google Chrome</strong><br>
+            <span style="color:var(--accent);font-weight:700;">Step 2</span> — Look for the <strong style="color:var(--text);">install icon ⊕</strong> in the address bar (right side)<br>
+            <span style="color:var(--accent);font-weight:700;">Step 3</span> — Click it and select <strong style="color:var(--text);">"Install"</strong> ✅
+          </div>
+          <div style="margin-top:10px;padding:8px;background:rgba(255,107,53,0.1);border-radius:6px;font-size:11px;color:var(--accent);">
+            ⚠️ The install icon only appears when you open the file via a web server or hosting. If you double-click the file directly, use the step below.
+          </div>
+        </div>
+        <div style="background:var(--surface3);border-radius:10px;padding:14px;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px;">🌐 Host it Free on GitHub Pages</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.8;">
+            For full PWA install to work, host the file online for free:<br>
+            1. Go to <strong style="color:var(--accent);">github.com</strong> → Sign up free<br>
+            2. Create a new repository → Upload your 4 files<br>
+            3. Go to Settings → Pages → Enable GitHub Pages<br>
+            4. Open the generated URL in Chrome → Install icon appears!
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ADD ITEM MODAL -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <h3 id="modalTitle">Add New Item</h3>
+    <div class="form-group"><label>Item Name</label><input id="newName" placeholder="e.g. Masala Chai"></div>
+    <div class="form-group"><label>Category</label>
+      <select id="newCat">
+        <option>Beverages</option><option>Breakfast</option><option>Snacks</option>
+        <option>Meals</option><option>Desserts</option><option>Specials</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Price (₹)</label><input type="number" id="newPrice" placeholder="0"></div>
+    <div class="form-group"><label>Emoji</label><input id="newEmoji" placeholder="☕" maxlength="2"></div>
+    <div class="form-group"><label>Type</label>
+      <select id="newType"><option value="veg">🟢 Vegetarian</option><option value="nonveg">🔴 Non-Veg</option></select>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-save" onclick="saveItem()">Add to Menu</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRINT AREA -->
+<div class="print-area" id="printArea"></div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════════════
+let settings = {
+  name: 'My Cafe', address: 'Your Address', phone: '+91 00000 00000',
+  gst: 'GSTIN', footer: 'Thank you for visiting!', gstRate: 5,
+  scriptUrl: ''
+};
+let menuItems = [
+  {id:1,name:'Masala Chai',cat:'Beverages',price:30,emoji:'☕',type:'veg'},
+  {id:2,name:'Filter Coffee',cat:'Beverages',price:40,emoji:'☕',type:'veg'},
+  {id:3,name:'Cold Coffee',cat:'Beverages',price:80,emoji:'🥤',type:'veg'},
+  {id:4,name:'Fresh Lime Soda',cat:'Beverages',price:60,emoji:'🍋',type:'veg'},
+  {id:5,name:'Veg Sandwich',cat:'Snacks',price:80,emoji:'🥪',type:'veg'},
+  {id:6,name:'Paneer Roll',cat:'Snacks',price:100,emoji:'🌯',type:'veg'},
+  {id:7,name:'Samosa (2pcs)',cat:'Snacks',price:30,emoji:'🥟',type:'veg'},
+  {id:8,name:'French Fries',cat:'Snacks',price:90,emoji:'🍟',type:'veg'},
+  {id:9,name:'Idli Sambar',cat:'Breakfast',price:60,emoji:'🍚',type:'veg'},
+  {id:10,name:'Masala Dosa',cat:'Breakfast',price:80,emoji:'🫓',type:'veg'},
+  {id:11,name:'Poha',cat:'Breakfast',price:50,emoji:'🍽',type:'veg'},
+  {id:12,name:'Veg Thali',cat:'Meals',price:150,emoji:'🍱',type:'veg'},
+  {id:13,name:'Paneer Butter Masala',cat:'Meals',price:180,emoji:'🍛',type:'veg'},
+  {id:14,name:'Dal Makhani',cat:'Meals',price:160,emoji:'🫕',type:'veg'},
+  {id:15,name:'Chicken Biryani',cat:'Meals',price:200,emoji:'🍗',type:'nonveg'},
+  {id:16,name:'Egg Fried Rice',cat:'Meals',price:130,emoji:'🍳',type:'nonveg'},
+  {id:17,name:'Gulab Jamun',cat:'Desserts',price:60,emoji:'🍮',type:'veg'},
+  {id:18,name:'Ice Cream',cat:'Desserts',price:70,emoji:'🍦',type:'veg'},
+];
+let cart = [];
+let orders = [];
+let payMode = 'cash';
+let currentCat = 'All';
+let deferredInstallPrompt = null;
+let isMobileCartOpen = false;
+
+// Load from storage
+function loadAll() {
+  try {
+    const s = localStorage.getItem('qb_settings');
+    if (s) settings = {...settings, ...JSON.parse(s)};
+    const m = localStorage.getItem('qb_menu');
+    if (m) menuItems = JSON.parse(m);
+    const o = localStorage.getItem('qb_orders');
+    if (o) orders = JSON.parse(o);
+  } catch(e) {}
+  loadSettings();
+}
+
+function saveAll() {
+  localStorage.setItem('qb_settings', JSON.stringify(settings));
+  localStorage.setItem('qb_menu', JSON.stringify(menuItems));
+  localStorage.setItem('qb_orders', JSON.stringify(orders));
+}
+
+// ═══════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const pages = { pos:'posPage', tables:'tablesPage', reports:'reportsPage', menu:'menuPage', settings:'settingsPage' };
+  const btns = { pos:0, tables:1, reports:2, menu:3, settings:4 };
+  document.getElementById(pages[page]).classList.add('active');
+  document.querySelectorAll('.nav-btn')[btns[page]].classList.add('active');
+  if (page === 'tables') renderTables();
+  if (page === 'reports') renderReports();
+  if (page === 'menu') renderMgrGrid();
+  if (page === 'settings') loadSettings();
+
+  // Close mobile cart when switching pages
+  if (page !== 'pos') closeMobileCart();
+}
+
+// ═══════════════════════════════════════════════════════
+// MOBILE CART
+// ═══════════════════════════════════════════════════════
+function toggleMobileCart() {
+  isMobileCartOpen = !isMobileCartOpen;
+  const panel = document.getElementById('orderPanel');
+  const menuPanel = document.getElementById('menuPanel');
+  const btn = document.getElementById('mobileCartToggle');
+  if (isMobileCartOpen) {
+    panel.classList.add('mobile-open');
+    menuPanel.classList.add('mobile-hidden');
+    btn.innerHTML = '← Back to Menu';
+  } else {
+    closeMobileCart();
+  }
+}
+
+function closeMobileCart() {
+  isMobileCartOpen = false;
+  const panel = document.getElementById('orderPanel');
+  const menuPanel = document.getElementById('menuPanel');
+  const btn = document.getElementById('mobileCartToggle');
+  panel.classList.remove('mobile-open');
+  menuPanel.classList.remove('mobile-hidden');
+  updateCartBadge();
+}
+
+function updateCartBadge() {
+  const total = cart.reduce((s,i)=>s+i.qty,0);
+  document.getElementById('cartCountBadge').textContent = total;
+  const btn = document.getElementById('mobileCartToggle');
+  if (!isMobileCartOpen) {
+    btn.innerHTML = `🛒 View Cart <span class="cart-count-badge" id="cartCountBadge">${total}</span>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// MENU
+// ═══════════════════════════════════════════════════════
+function getCategories() {
+  return ['All', ...new Set(menuItems.map(i => i.cat))];
+}
+
+function renderCatTabs() {
+  document.getElementById('catTabs').innerHTML = getCategories().map(c =>
+    `<button class="cat-tab ${c===currentCat?'active':''}" onclick="setCat('${c}')">${c}</button>`
+  ).join('');
+}
+
+function setCat(cat) {
+  currentCat = cat;
+  renderCatTabs();
+  renderItems();
+}
+
+function renderItems() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const filtered = menuItems.filter(i =>
+    (currentCat === 'All' || i.cat === currentCat) &&
+    (!q || i.name.toLowerCase().includes(q))
+  );
+  document.getElementById('itemsGrid').innerHTML = filtered.map(i => {
+    const cartItem = cart.find(c => c.id === i.id);
+    const qty = cartItem ? cartItem.qty : 0;
+    return `<div class="item-card ${qty>0?'in-cart':''}" onclick="addToCart(${i.id})">
+      <div class="item-qty-badge">${qty}</div>
+      <div class="item-type ${i.type}"></div>
+      <span class="item-emoji">${i.emoji}</span>
+      <div class="item-name">${i.name}</div>
+      <div class="item-price">₹${i.price}</div>
+    </div>`;
+  }).join('') || `<div style="color:var(--text3);font-size:13px;grid-column:1/-1;padding:20px;">No items found</div>`;
+}
+
+function filterItems() { renderItems(); }
+
+// ═══════════════════════════════════════════════════════
+// CART
+// ═══════════════════════════════════════════════════════
+function addToCart(id) {
+  const item = menuItems.find(i => i.id === id);
+  const ex = cart.find(c => c.id === id);
+  if (ex) ex.qty++;
+  else cart.push({...item, qty:1});
+  renderCart();
+  renderItems();
+  updateCartBadge();
+  toast(`${item.emoji} ${item.name} added`, 'success');
+}
+
+function changeQty(id, delta) {
+  const ex = cart.find(c => c.id === id);
+  if (!ex) return;
+  ex.qty += delta;
+  if (ex.qty <= 0) cart = cart.filter(c => c.id !== id);
+  renderCart();
+  renderItems();
+  updateCartBadge();
+}
+
+function renderCart() {
+  const list = document.getElementById('orderList');
+  const summary = document.getElementById('billSummary');
+  if (cart.length === 0) {
+    summary.style.display = 'none';
+    list.innerHTML = `<div class="empty-order"><div class="icon">🛒</div><p>Tap items to add</p></div>`;
+    return;
+  }
+  summary.style.display = 'block';
+  list.innerHTML = cart.map(i => `
+    <div class="order-row">
+      <div class="order-row-name">${i.emoji} ${i.name}</div>
+      <div class="qty-ctrl">
+        <button class="qty-btn" onclick="changeQty(${i.id},-1)">−</button>
+        <span class="qty-num">${i.qty}</span>
+        <button class="qty-btn" onclick="changeQty(${i.id},1)">+</button>
+      </div>
+      <div class="order-row-price">₹${(i.price*i.qty).toFixed(0)}</div>
+    </div>`).join('');
+  calcBill();
+}
+
+function calcBill() {
+  const sub = cart.reduce((s,i)=>s+i.price*i.qty, 0);
+  const disc = Math.min(parseFloat(document.getElementById('discountInput').value)||0, 100);
+  const discAmt = sub*(disc/100);
+  const gstRate = settings.gstRate || 5;
+  const gst = (sub-discAmt)*(gstRate/100);
+  const total = sub-discAmt+gst;
+  document.getElementById('subtotalVal').textContent = `₹${sub.toFixed(2)}`;
+  document.getElementById('discountVal').textContent = `-₹${discAmt.toFixed(2)}`;
+  document.getElementById('gstLabel').textContent = `GST (${gstRate}%)`;
+  document.getElementById('gstVal').textContent = `₹${gst.toFixed(2)}`;
+  document.getElementById('totalVal').textContent = `₹${total.toFixed(2)}`;
+}
+
+function clearOrder() {
+  cart = [];
+  document.getElementById('discountInput').value = '';
+  renderCart();
+  renderItems();
+  updateCartBadge();
+  closeMobileCart();
+}
+
+function selectPay(btn, mode) {
+  payMode = mode;
+  document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function updateTableChip() {
+  document.getElementById('topTableChip').textContent = 'Table: ' + document.getElementById('tableSelect').value;
+}
+
+// ═══════════════════════════════════════════════════════
+// PRINT BILL
+// ═══════════════════════════════════════════════════════
+function printBill() {
+  if (cart.length === 0) { toast('Add items to order first', 'error'); return; }
+  const sub = cart.reduce((s,i)=>s+i.price*i.qty, 0);
+  const disc = Math.min(parseFloat(document.getElementById('discountInput').value)||0, 100);
+  const discAmt = sub*(disc/100);
+  const gstRate = settings.gstRate || 5;
+  const gst = (sub-discAmt)*(gstRate/100);
+  const total = sub-discAmt+gst;
+  const table = document.getElementById('tableSelect').value;
+  const now = new Date();
+  const billNo = 'QB'+Date.now().toString().slice(-6);
+
+  const S = {
+    c: 'text-align:center;display:block;width:100%;',
+    r: 'display:flex;justify-content:space-between;width:100%;margin:3px 0;font-size:12px;',
+    h: 'border:none;border-top:1px dashed #000;margin:6px 0;width:100%;',
+  };
+
+  document.getElementById('printArea').innerHTML = `
+    <div style="font-family:Courier New,monospace;font-size:12px;color:#000;width:100%;padding:4px;">
+      <div style="${S.c}font-size:18px;font-weight:bold;margin-bottom:2px;">${settings.name}</div>
+      <div style="${S.c}font-size:11px;">${settings.address}</div>
+      <div style="${S.c}font-size:11px;">Ph: ${settings.phone}</div>
+      <div style="${S.c}font-size:11px;">GSTIN: ${settings.gst}</div>
+      <hr style="${S.h}">
+      <div style="${S.r}"><span>Bill No: ${billNo}</span><span>${now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</span></div>
+      <div style="${S.r}"><span>Table: ${table}</span><span>${now.toLocaleDateString('en-IN')}</span></div>
+      <div style="${S.r}"><span>Payment: ${payMode.toUpperCase()}</span></div>
+      <hr style="${S.h}">
+      <div style="${S.r}font-weight:bold;"><span>Item</span><span>Qty &nbsp; Amt</span></div>
+      ${cart.map(i=>`<div style="${S.r}"><span>${i.name}</span><span>x${i.qty} &nbsp; ₹${(i.price*i.qty).toFixed(2)}</span></div>`).join('')}
+      <hr style="${S.h}">
+      <div style="${S.r}"><span>Subtotal</span><span>₹${sub.toFixed(2)}</span></div>
+      ${disc>0?`<div style="${S.r}"><span>Discount (${disc}%)</span><span>- ₹${discAmt.toFixed(2)}</span></div>`:''}
+      <div style="${S.r}"><span>GST (${gstRate}%)</span><span>₹${gst.toFixed(2)}</span></div>
+      <hr style="${S.h}">
+      <div style="${S.r}font-size:15px;font-weight:bold;"><span>TOTAL</span><span>₹${total.toFixed(2)}</span></div>
+      <hr style="${S.h}">
+      <div style="${S.c}font-size:11px;margin-top:8px;">
+        <span style="display:block;font-weight:bold;">${settings.footer}</span>
+        <span style="display:block;margin-top:4px;">*** Thank You! Visit Again ***</span>
+      </div>
+    </div>`;
+
+  const order = {
+    id: billNo, table, items: cart.length, total: parseFloat(total.toFixed(2)),
+    subtotal: parseFloat(sub.toFixed(2)), discount: parseFloat(discAmt.toFixed(2)),
+    gst: parseFloat(gst.toFixed(2)), pay: payMode,
+    time: now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),
+    date: now.toLocaleDateString('en-IN'),
+    itemsList: [...cart]
+  };
+
+  orders.push(order);
+  saveAll();
+
+  // Delay so DOM updates before print dialog
+  setTimeout(() => {
+    window.print();
+    toast('Bill printed ✓', 'success');
+    if (settings.scriptUrl) {
+      syncOrderToSheets(order);
+    }
+    setTimeout(() => { clearOrder(); }, 500);
+  }, 100);
+}
+
+// ═══════════════════════════════════════════════════════
+// KOT
+// ═══════════════════════════════════════════════════════
+function printKOT() {
+  if (cart.length === 0) { toast('Add items first', 'error'); return; }
+  const table = document.getElementById('tableSelect').value;
+  const now = new Date();
+  const S = { r:'display:flex;justify-content:space-between;width:100%;margin:4px 0;font-size:13px;', h:'border:none;border-top:1px dashed #000;margin:6px 0;width:100%;' };
+
+  document.getElementById('printArea').innerHTML = `
+    <div style="font-family:Courier New,monospace;font-size:12px;color:#000;width:100%;padding:4px;">
+      <div style="text-align:center;font-size:22px;font-weight:bold;margin-bottom:4px;">** KOT **</div>
+      <div style="text-align:center;font-size:13px;margin-bottom:6px;">${settings.name}</div>
+      <hr style="${S.h}">
+      <div style="${S.r}"><span>Table: ${table}</span><span>${now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</span></div>
+      <div style="${S.r}"><span>Date: ${now.toLocaleDateString('en-IN')}</span></div>
+      <hr style="${S.h}">
+      <div style="${S.r}font-weight:bold;"><span>Item</span><span>Qty</span></div>
+      ${cart.map(i=>`<div style="${S.r}font-size:15px;font-weight:bold;margin:6px 0;"><span>${i.name}</span><span>x${i.qty}</span></div>`).join('')}
+      <hr style="${S.h}">
+      <div style="text-align:center;font-size:12px;margin-top:6px;">-- Kitchen Copy --</div>
+    </div>`;
+
+  // Small delay so DOM updates fully before print dialog opens
+  setTimeout(() => {
+    window.print();
+    toast('KOT sent to kitchen 🍳', 'success');
+  }, 100);
+}
+
+// ═══════════════════════════════════════════════════════
+// GOOGLE SHEETS SYNC
+// ═══════════════════════════════════════════════════════
+async function callScript(body) {
+  if (!settings.scriptUrl) { toast('Configure Script URL in Settings first', 'error'); return null; }
+  try {
+    const res = await fetch(settings.scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' }, // avoid CORS preflight
+      body: JSON.stringify(body),
+      mode: 'no-cors' // Google Apps Script doesn't send CORS headers on deployed web apps
+    });
+    return { status: 'ok' }; // no-cors means we can't read response, but it works
+  } catch(e) {
+    console.error('Sync error:', e);
+    return null;
+  }
+}
+
+async function syncOrderToSheets(order) {
+  setSyncState(true);
+  const result = await callScript({ action: 'saveOrder', order });
+  setSyncState(false);
+  if (result) toast('☁ Synced to Google Sheets', 'info');
+}
+
+async function testConnection() {
+  if (!settings.scriptUrl) { toast('Paste your Script URL first', 'error'); return; }
+  setSyncState(true);
+  toast('Testing connection...', 'info');
+  try {
+    // For GET ping, we can read the response
+    const res = await fetch(settings.scriptUrl + '?action=ping');
+    const data = await res.json();
+    if (data.status === 'ok') {
+      document.getElementById('syncDot').className = 'sync-dot connected';
+      document.getElementById('syncStatusText').textContent = '✓ Connected to Google Sheets!';
+      toast('✅ Google Sheets connected!', 'success');
+    } else {
+      throw new Error(data.message);
+    }
+  } catch(e) {
+    document.getElementById('syncDot').className = 'sync-dot error';
+    document.getElementById('syncStatusText').textContent = 'Connection failed — check your URL';
+    toast('Connection failed. Check URL in settings.', 'error');
+  }
+  setSyncState(false);
+}
+
+async function manualSync() {
+  if (!settings.scriptUrl) { toast('Configure Script URL in Settings first', 'error'); return; }
+  setSyncState(true);
+  toast('Syncing all data...', 'info');
+
+  // Sync unsynced orders
+  for (const order of orders.slice(-50)) {
+    await callScript({ action: 'saveOrder', order });
+  }
+
+  // Sync menu
+  await callScript({ action: 'saveMenu', menu: menuItems });
+
+  setSyncState(false);
+  toast(`☁ Synced ${orders.length} orders + menu`, 'success');
+}
+
+async function syncToSheets() {
+  await manualSync();
+}
+
+function setSyncState(syncing) {
+  const btn = document.getElementById('syncBtn');
+  const bar = document.getElementById('syncBar');
+  if (syncing) {
+    btn.classList.add('syncing');
+    bar.style.width = '70%';
+    bar.classList.add('syncing');
+  } else {
+    btn.classList.remove('syncing');
+    bar.style.width = '100%';
+    bar.classList.remove('syncing');
+    setTimeout(() => { bar.style.width = '0%'; }, 600);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// TABLES
+// ═══════════════════════════════════════════════════════
+function renderTables() {
+  const tables = ['T1','T2','T3','T4','T5','T6','T7','T8'];
+  document.getElementById('tablesGrid').innerHTML =
+    `<div class="page-title">🪑 Table Overview</div>` +
+    tables.map(t => {
+      const oOrder = orders.filter(o => o.table === t).slice(-1)[0];
+      const occupied = !!oOrder;
+      return `<div class="table-card ${occupied?'occupied':''}" onclick="goToTable('${t}')">
+        <div class="status-dot"></div>
+        <div class="t-num">${t}</div>
+        <div class="t-label">${occupied?'Occupied':'Available'}</div>
+        ${occupied?`<div class="t-amount">₹${oOrder.total.toFixed(0)}</div>`:''}
+      </div>`;
+    }).join('');
+}
+
+function goToTable(t) {
+  document.getElementById('tableSelect').value = t;
+  updateTableChip();
+  showPage('pos');
+}
+
+// ═══════════════════════════════════════════════════════
+// REPORTS
+// ═══════════════════════════════════════════════════════
+function renderReports() {
+  const total = orders.reduce((s,o) => s+o.total, 0);
+  const items = orders.reduce((s,o) => s+o.items, 0);
+  document.getElementById('rTotalSales').textContent = `₹${total.toFixed(0)}`;
+  document.getElementById('rOrders').textContent = orders.length;
+  document.getElementById('rAvg').textContent = orders.length ? `₹${(total/orders.length).toFixed(0)}` : '₹0';
+  document.getElementById('rItems').textContent = items;
+  document.getElementById('ordersTableBody').innerHTML = orders.length
+    ? orders.slice().reverse().map(o => `
+        <tr><td>${o.id}</td><td>${o.table}</td><td>${o.items}</td>
+        <td>${o.pay.toUpperCase()}</td><td style="color:var(--green);font-weight:600">₹${o.total.toFixed(2)}</td><td>${o.time}</td></tr>`).join('')
+    : `<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:30px;">No orders yet</td></tr>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// MENU MANAGER
+// ═══════════════════════════════════════════════════════
+function renderMgrGrid() {
+  const search = document.getElementById('mgrSearch')?.value.toLowerCase() || '';
+  const cat = document.getElementById('mgrCatFilter')?.value || '';
+  const cats = getCategories().filter(c => c !== 'All');
+  const sel = document.getElementById('mgrCatFilter');
+  if (sel) sel.innerHTML = `<option value="">All Categories</option>` + cats.map(c => `<option ${cat===c?'selected':''}>${c}</option>`).join('');
+  const filtered = menuItems.filter(i => (!search || i.name.toLowerCase().includes(search)) && (!cat || i.cat === cat));
+  document.getElementById('mgrGrid').innerHTML = filtered.map(i => `
+    <div class="mgr-item-card">
+      <div class="mgr-emoji">${i.emoji}</div>
+      <div class="mgr-info"><div class="mgr-name">${i.name}</div><div class="mgr-cat">${i.cat}</div></div>
+      <button class="toggle-veg ${i.type==='veg'?'veg-active':'nonveg-active'}" onclick="toggleType(${i.id})">${i.type==='veg'?'VEG':'NON-VEG'}</button>
+      <div class="mgr-price">₹${i.price}</div>
+      <button class="mgr-del" onclick="deleteItem(${i.id})">🗑</button>
+    </div>`).join('') || `<div style="color:var(--text3);font-size:13px;padding:20px;">No items found</div>`;
+}
+
+function toggleType(id) {
+  const item = menuItems.find(i => i.id === id);
+  if (item) { item.type = item.type === 'veg' ? 'nonveg' : 'veg'; saveAll(); renderMgrGrid(); renderItems(); }
+}
+
+function deleteItem(id) {
+  if (confirm('Delete this item?')) {
+    menuItems = menuItems.filter(i => i.id !== id);
+    cart = cart.filter(c => c.id !== id);
+    saveAll(); renderMgrGrid(); renderCatTabs(); renderItems();
+    toast('Item deleted', 'error');
+  }
+}
+
+let editId = null;
+function openAddModal() {
+  editId = null;
+  document.getElementById('modalTitle').textContent = 'Add New Item';
+  ['newName','newPrice','newEmoji'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('addModal').classList.add('open');
+}
+
+function closeModal() { document.getElementById('addModal').classList.remove('open'); }
+
+function saveItem() {
+  const name = document.getElementById('newName').value.trim();
+  const cat = document.getElementById('newCat').value;
+  const price = parseFloat(document.getElementById('newPrice').value);
+  const emoji = document.getElementById('newEmoji').value || '🍽';
+  const type = document.getElementById('newType').value;
+  if (!name || !price) { toast('Fill all fields', 'error'); return; }
+  menuItems.push({ id: Date.now(), name, cat, price, emoji, type });
+  saveAll(); renderMgrGrid(); renderCatTabs(); renderItems();
+  closeModal();
+  toast(`${emoji} ${name} added to menu`, 'success');
+}
+
+// ═══════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════
+function loadSettings() {
+  document.getElementById('settingName').value = settings.name;
+  document.getElementById('settingAddress').value = settings.address;
+  document.getElementById('settingPhone').value = settings.phone;
+  document.getElementById('settingGST').value = settings.gst;
+  document.getElementById('settingFooter').value = settings.footer;
+  document.getElementById('settingGSTRate').value = settings.gstRate || 5;
+  document.getElementById('settingScriptUrl').value = settings.scriptUrl || '';
+
+  if (settings.scriptUrl) {
+    document.getElementById('syncDot').className = 'sync-dot connected';
+    document.getElementById('syncStatusText').textContent = 'Script URL configured — test connection to verify';
+  }
+}
+
+function saveSettings() {
+  settings = {
+    ...settings,
+    name: document.getElementById('settingName').value,
+    address: document.getElementById('settingAddress').value,
+    phone: document.getElementById('settingPhone').value,
+    gst: document.getElementById('settingGST').value,
+    footer: document.getElementById('settingFooter').value,
+    gstRate: parseFloat(document.getElementById('settingGSTRate').value) || 5,
+    scriptUrl: document.getElementById('settingScriptUrl').value.trim(),
+  };
+  saveAll();
+  toast('Settings saved ✓', 'success');
+}
+
+// ═══════════════════════════════════════════════════════
+// PWA INSTALL
+// ═══════════════════════════════════════════════════════
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  // Show the auto-install button
+  const wrap = document.getElementById('autoInstallWrap');
+  if (wrap) wrap.style.display = 'block';
+  toast('📲 Tap Settings → Install to add app to your device!', 'info');
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  const wrap = document.getElementById('autoInstallWrap');
+  if (wrap) wrap.style.display = 'none';
+  toast('✅ QuickBill installed successfully!', 'success');
+});
+
+function installApp() {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then((choice) => {
+      if (choice.outcome === 'accepted') {
+        toast('✅ Installing QuickBill...', 'success');
+      }
+      deferredInstallPrompt = null;
+      const wrap = document.getElementById('autoInstallWrap');
+      if (wrap) wrap.style.display = 'none';
+    });
+  }
+}
+
+// Detect device type and show the right install guide
+function detectDeviceAndShowGuide() {
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+  const isAndroid = /Android/.test(ua);
+
+  if (isIOS) {
+    const el = document.getElementById('installGuideIOS');
+    const desk = document.getElementById('installGuideDesktop');
+    if (el) el.style.display = 'block';
+    if (desk) desk.style.display = 'none';
+  } else if (isAndroid) {
+    const el = document.getElementById('installGuideAndroid');
+    const desk = document.getElementById('installGuideDesktop');
+    if (el) el.style.display = 'block';
+    if (desk) desk.style.display = 'none';
+  }
+  // Desktop guide shows by default
+}
+
+// Run device detection when settings page is shown
+// (called via detectDeviceAndShowGuide() at init)
+
+// ═══════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════
+function toast(msg, type='success') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  document.getElementById('toastContainer').appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+loadAll();
+renderCatTabs();
+renderItems();
+renderCart();
+updateTableChip();
+updateCartBadge();
+
+// Register Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js')
+    .then(() => console.log('SW registered'))
+    .catch(e => console.log('SW error:', e));
+}
+
+// Detect device on load
+detectDeviceAndShowGuide();
+</script>
+</body>
+</html>
