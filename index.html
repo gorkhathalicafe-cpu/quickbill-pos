@@ -430,6 +430,9 @@
             <button class="kot-btn" onclick="printKOT()">KOT</button>
             <button class="print-btn" onclick="printBill()">🧾 Bill & Pay</button>
           </div>
+          <button id="btConnectBtn" onclick="connectBluetooth()" style="width:100%;padding:9px;border-radius:var(--radius);border:1.5px dashed var(--border);background:transparent;color:var(--text2);font-size:12px;cursor:pointer;transition:all 0.15s;">
+            📶 Connect Bluetooth Printer
+          </button>
         </div>
       </div>
     </div>
@@ -780,9 +783,97 @@ function updateTableChip() {
 }
 
 // ═══════════════════════════════════════════════════════
+// ESC/POS BLUETOOTH PRINTER
+// ═══════════════════════════════════════════════════════
+let btDevice = null, btChar = null;
+
+// ESC/POS command helpers
+const ESC = 0x1B, GS = 0x1D;
+function escPos() {
+  const buf = [];
+  const enc = new TextEncoder();
+  return {
+    init()      { buf.push(ESC,0x40); return this; },
+    center()    { buf.push(ESC,0x61,0x01); return this; },
+    left()      { buf.push(ESC,0x61,0x00); return this; },
+    bold(on)    { buf.push(ESC,0x45, on?1:0); return this; },
+    dblH(on)    { buf.push(ESC,0x21, on?0x10:0x00); return this; },
+    text(s)     { enc.encode(s).forEach(b=>buf.push(b)); return this; },
+    lf(n=1)     { for(let i=0;i<n;i++) buf.push(0x0A); return this; },
+    dash()      { return this.text('--------------------------------').lf(); },
+    dashDot()   { return this.text('- - - - - - - - - - - - - - - -').lf(); },
+    // Print two strings left+right padded to 32 chars
+    row(left, right) {
+      const pad = 32 - left.length - right.length;
+      return this.text(left + ' '.repeat(Math.max(1,pad)) + right).lf();
+    },
+    cut()       { buf.push(GS,0x56,0x41,0x10); return this; },
+    build()     { return new Uint8Array(buf); }
+  };
+}
+
+async function connectBluetooth() {
+  try {
+    toast('Searching for printer...', 'info');
+    btDevice = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: [
+        '000018f0-0000-1000-8000-00805f9b34fb', // common BT printer service
+        '49535343-fe7d-4ae5-8fa9-9fafd205e455', // ISSC
+        '0000ff00-0000-1000-8000-00805f9b34fb', // common generic
+        'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Star
+      ]
+    });
+    const server = await btDevice.gatt.connect();
+    // Try known services in order
+    const serviceUUIDs = [
+      '000018f0-0000-1000-8000-00805f9b34fb',
+      '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+      '0000ff00-0000-1000-8000-00805f9b34fb',
+      'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+    ];
+    const charUUIDs = [
+      '00002af1-0000-1000-8000-00805f9b34fb',
+      '49535343-8841-43f4-a8d4-ecbe34729bb3',
+      '0000ff02-0000-1000-8000-00805f9b34fb',
+      'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f',
+    ];
+    for (let i = 0; i < serviceUUIDs.length; i++) {
+      try {
+        const svc = await server.getPrimaryService(serviceUUIDs[i]);
+        btChar = await svc.getCharacteristic(charUUIDs[i]);
+        toast('Printer connected! ✓', 'success');
+        document.getElementById('btConnectBtn').textContent = '🖨 ' + (btDevice.name || 'Printer') + ' ✓';
+        document.getElementById('btConnectBtn').style.background = 'var(--green)';
+        return true;
+      } catch(e) { continue; }
+    }
+    toast('Printer found but could not connect. Try again.', 'error');
+    return false;
+  } catch(e) {
+    if (e.name !== 'NotFoundError') toast('Bluetooth error: ' + e.message, 'error');
+    return false;
+  }
+}
+
+async function sendToPrinter(data) {
+  if (!btChar) {
+    const ok = await connectBluetooth();
+    if (!ok) return false;
+  }
+  // Send in 512-byte chunks (BT MTU limit)
+  const CHUNK = 512;
+  for (let i = 0; i < data.length; i += CHUNK) {
+    await btChar.writeValue(data.slice(i, i + CHUNK));
+    await new Promise(r => setTimeout(r, 50));
+  }
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════
 // PRINT BILL
 // ═══════════════════════════════════════════════════════
-function printBill() {
+async function printBill() {
   if (cart.length === 0) { toast('Add items to order first', 'error'); return; }
   const sub = cart.reduce((s,i)=>s+i.price*i.qty, 0);
   const disc = Math.min(parseFloat(document.getElementById('discountInput').value)||0, 100);
@@ -793,93 +884,84 @@ function printBill() {
   const table = document.getElementById('tableSelect').value;
   const now = new Date();
   const billNo = 'QB'+Date.now().toString().slice(-6);
+  const timeStr = now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  const dateStr = now.toLocaleDateString('en-IN');
 
-  const S = {
-    c: 'text-align:center;display:block;width:100%;',
-    r: 'display:flex;justify-content:space-between;width:100%;margin:3px 0;font-size:9pt;',
-    h: 'border:none;border-top:1px dashed #000;margin:5px 0;width:100%;',
-  };
+  const p = escPos().init()
+    .center().dblH(true).bold(true).text(settings.name).lf()
+    .dblH(false).bold(false)
+    .text(settings.address).lf()
+    .text('Ph: '+settings.phone).lf()
+    .text('GSTIN: '+settings.gst).lf()
+    .dash()
+    .left()
+    .row('Bill: '+billNo, timeStr)
+    .row('Table: '+table, dateStr)
+    .text('Payment: '+payMode.toUpperCase()).lf()
+    .dash()
+    .bold(true).row('Item','Amt').bold(false)
+    .dashDot();
 
-  // Build items rows: name on first line, qty + amount on second line (safe for narrow 58mm)
-  const itemRows = cart.map(i => `
-    <div style="margin:4px 0;">
-      <div style="font-weight:600;font-size:9pt;">${i.name}</div>
-      <div style="${S.r}padding-left:4px;">
-        <span>x${i.qty}</span>
-        <span>Rs.${(i.price*i.qty).toFixed(2)}</span>
-      </div>
-    </div>`).join('');
+  cart.forEach(i => {
+    const amt = 'Rs.'+( i.price*i.qty).toFixed(2);
+    // Name line (truncate if too long)
+    const name = i.name.length > 20 ? i.name.slice(0,19)+'.' : i.name;
+    p.text(name).lf();
+    p.row('  x'+i.qty, amt);
+  });
 
-  document.getElementById('printArea').innerHTML = `
-    <div style="font-family:'Courier New',Courier,monospace;font-size:9pt;color:#000;width:100%;padding:2px 3px;line-height:1.45;">
-      <div style="${S.c}font-size:13pt;font-weight:bold;margin-bottom:2px;">${settings.name}</div>
-      <div style="${S.c}font-size:8pt;">${settings.address}</div>
-      <div style="${S.c}font-size:8pt;">Ph: ${settings.phone}</div>
-      <div style="${S.c}font-size:8pt;">GSTIN: ${settings.gst}</div>
-      <hr style="${S.h}">
-      <div style="${S.r}"><span>Bill No: ${billNo}</span><span>${now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</span></div>
-      <div style="${S.r}"><span>Table: ${table}</span><span>${now.toLocaleDateString('en-IN')}</span></div>
-      <div style="font-size:9pt;margin:2px 0;">Payment: ${payMode.toUpperCase()}</div>
-      <hr style="${S.h}">
-      <div style="${S.r}font-weight:bold;border-bottom:1px solid #000;padding-bottom:3px;"><span>Item</span><span>Amt</span></div>
-      ${itemRows}
-      <hr style="${S.h}">
-      <div style="${S.r}"><span>Subtotal</span><span>Rs.${sub.toFixed(2)}</span></div>
-      ${disc>0?`<div style="${S.r}"><span>Discount (${disc}%)</span><span>-Rs.${discAmt.toFixed(2)}</span></div>`:''}
-      <div style="${S.r}"><span>GST (${gstRate}%)</span><span>Rs.${gst.toFixed(2)}</span></div>
-      <hr style="${S.h}">
-      <div style="${S.r}font-size:11pt;font-weight:bold;"><span>TOTAL</span><span>Rs.${total.toFixed(2)}</span></div>
-      <hr style="${S.h}">
-      <div style="${S.c}font-size:8pt;margin-top:8px;">
-        <span style="display:block;font-weight:bold;">${settings.footer}</span>
-        <span style="display:block;margin-top:4px;">*** Thank You! Visit Again ***</span>
-      </div>
-    </div>`;
+  p.dash()
+   .row('Subtotal', 'Rs.'+sub.toFixed(2));
+  if (disc > 0) p.row('Discount ('+disc+'%)', '-Rs.'+discAmt.toFixed(2));
+  p.row('GST ('+gstRate+'%)', 'Rs.'+gst.toFixed(2))
+   .dash()
+   .bold(true).dblH(true).row('TOTAL', 'Rs.'+total.toFixed(2)).dblH(false).bold(false)
+   .dash()
+   .center()
+   .text(settings.footer).lf()
+   .text('*** Thank You! Visit Again ***').lf()
+   .lf(3).cut();
+
+  const ok = await sendToPrinter(p.build());
+  if (!ok) return;
 
   const order = {
     id: billNo, table, items: cart.length, total: parseFloat(total.toFixed(2)),
     subtotal: parseFloat(sub.toFixed(2)), discount: parseFloat(discAmt.toFixed(2)),
     gst: parseFloat(gst.toFixed(2)), pay: payMode,
-    time: now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),
-    date: now.toLocaleDateString('en-IN'),
-    itemsList: [...cart]
+    time: timeStr, date: dateStr, itemsList: [...cart]
   };
-
   orders.push(order);
   saveAll();
-  window.print();
   toast('Bill printed ✓', 'success');
-
-  // Auto sync to Google Sheets
-  if (settings.scriptUrl) {
-    syncOrderToSheets(order);
-  }
-
+  if (settings.scriptUrl) syncOrderToSheets(order);
   setTimeout(() => { clearOrder(); }, 500);
 }
 
 // ═══════════════════════════════════════════════════════
 // KOT
 // ═══════════════════════════════════════════════════════
-function printKOT() {
+async function printKOT() {
   if (cart.length === 0) { toast('Add items first', 'error'); return; }
   const table = document.getElementById('tableSelect').value;
   const now = new Date();
-  const S = { r:'display:flex;justify-content:space-between;width:100%;margin:4px 0;font-size:9pt;', h:'border:none;border-top:1px dashed #000;margin:6px 0;width:100%;' };
-  document.getElementById('printArea').innerHTML = `
-    <div style="font-family:'Courier New',Courier,monospace;font-size:9pt;color:#000;width:100%;padding:2px 3px;line-height:1.45;">
-      <div style="text-align:center;font-size:14pt;font-weight:bold;margin-bottom:4px;">** KOT **</div>
-      <div style="text-align:center;font-size:9pt;margin-bottom:6px;">${settings.name}</div>
-      <hr style="${S.h}">
-      <div style="${S.r}"><span>Table: ${table}</span><span>${now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</span></div>
-      <hr style="${S.h}">
-      <div style="${S.r}font-weight:bold;border-bottom:1px solid #000;padding-bottom:3px;"><span>Item</span><span>Qty</span></div>
-      ${cart.map(i=>`<div style="${S.r}font-size:11pt;font-weight:bold;margin:6px 0;"><span>${i.name}</span><span>x${i.qty}</span></div>`).join('')}
-      <hr style="${S.h}">
-      <div style="text-align:center;font-size:8pt;margin-top:6px;">-- Kitchen Copy --</div>
-    </div>`;
-  window.print();
-  toast('KOT sent to kitchen 🍳', 'success');
+  const timeStr = now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+
+  const p = escPos().init()
+    .center().dblH(true).bold(true).text('** KOT **').lf()
+    .dblH(false).text(settings.name).lf()
+    .bold(false).dash()
+    .left().row('Table: '+table, timeStr).dash()
+    .bold(true).row('Item','Qty').bold(false).dashDot();
+
+  cart.forEach(i => {
+    p.bold(true).row(i.name.slice(0,24), 'x'+i.qty).bold(false);
+  });
+
+  p.dash().center().text('-- Kitchen Copy --').lf().lf(3).cut();
+
+  const ok = await sendToPrinter(p.build());
+  if (ok) toast('KOT sent to kitchen', 'success');
 }
 
 // ═══════════════════════════════════════════════════════
