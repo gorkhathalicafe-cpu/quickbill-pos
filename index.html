@@ -305,9 +305,19 @@
   /* ─── PRINT ─── */
   .print-area { display: none; }
   @media print {
+    @page { size: 58mm auto; margin: 0mm 2mm; }
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .topbar, .main, .toast-container, .modal-overlay, .sync-bar { display: none !important; }
-    .print-area { display: block !important; width: 100%; font-family: 'Courier New', monospace; font-size: 12px; color: #000 !important; background: #fff !important; }
+    html, body { background: #fff !important; margin: 0; padding: 0; }
+    .topbar, .main, .toast-container, .modal-overlay, .sync-bar, .mobile-cart-toggle { display: none !important; }
+    .print-area {
+      display: block !important;
+      width: 54mm;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 9pt;
+      color: #000 !important;
+      background: #fff !important;
+      line-height: 1.45;
+    }
   }
 
   /* ─── TOASTS ─── */
@@ -405,10 +415,10 @@
             <input type="number" class="discount-input" id="discountInput" placeholder="Discount %" min="0" max="100" oninput="calcBill()">
             <button class="apply-btn" onclick="calcBill()">Apply</button>
           </div>
-          <div class="bill-row"><span>Subtotal</span><span id="subtotalVal">₹0</span></div>
-          <div class="bill-row"><span>Discount</span><span id="discountVal">-₹0</span></div>
-          <div class="bill-row"><span id="gstLabel">GST (5%)</span><span id="gstVal">₹0</span></div>
-          <div class="bill-row total"><span>TOTAL</span><span id="totalVal">₹0</span></div>
+          <div class="bill-row"><span>Subtotal</span><span id="subtotalVal">Rs.0</span></div>
+          <div class="bill-row"><span>Discount</span><span id="discountVal">-Rs.0</span></div>
+          <div class="bill-row"><span id="gstLabel">GST (5%)</span><span id="gstVal">Rs.0</span></div>
+          <div class="bill-row total"><span>TOTAL</span><span id="totalVal">Rs.0</span></div>
         </div>
         <div class="order-actions">
           <div class="pay-methods">
@@ -434,15 +444,15 @@
   <div id="reportsPage" class="page reports-page">
     <div class="page-title">📊 Sales Reports</div>
     <div class="stat-grid">
-      <div class="stat-card"><div class="stat-label">Today's Revenue</div><div class="stat-value green" id="rTotalSales">₹0</div></div>
+      <div class="stat-card"><div class="stat-label">Today's Revenue</div><div class="stat-value green" id="rTotalSales">Rs.0</div></div>
       <div class="stat-card"><div class="stat-label">Total Orders</div><div class="stat-value orange" id="rOrders">0</div></div>
-      <div class="stat-card"><div class="stat-label">Avg Order Value</div><div class="stat-value blue" id="rAvg">₹0</div></div>
+      <div class="stat-card"><div class="stat-label">Avg Order Value</div><div class="stat-value blue" id="rAvg">Rs.0</div></div>
       <div class="stat-card"><div class="stat-label">Items Sold</div><div class="stat-value" id="rItems">0</div></div>
     </div>
     <div class="orders-table">
       <table>
-        <thead><tr><th>Bill No</th><th>Table</th><th>Items</th><th>Payment</th><th>Total</th><th>Time</th><th></th></tr></thead>
-        <tbody id="ordersTableBody"><tr><td colspan="7" style="text-align:center;color:var(--text3);padding:30px;">No orders yet</td></tr></tbody>
+        <thead><tr><th>Bill No</th><th>Table</th><th>Items</th><th>Payment</th><th>Total</th><th>Time</th></tr></thead>
+        <tbody id="ordersTableBody"><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:30px;">No orders yet</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -522,7 +532,7 @@
         <option>Meals</option><option>Desserts</option><option>Specials</option>
       </select>
     </div>
-    <div class="form-group"><label>Price (₹)</label><input type="number" id="newPrice" placeholder="0"></div>
+    <div class="form-group"><label>Price (Rs.)</label><input type="number" id="newPrice" placeholder="0"></div>
     <div class="form-group"><label>Emoji</label><input id="newEmoji" placeholder="☕" maxlength="2"></div>
     <div class="form-group"><label>Type</label>
       <select id="newType"><option value="veg">🟢 Vegetarian</option><option value="nonveg">🔴 Non-Veg</option></select>
@@ -683,7 +693,7 @@ function renderItems() {
       <div class="item-type ${i.type}"></div>
       <span class="item-emoji">${i.emoji}</span>
       <div class="item-name">${i.name}</div>
-      <div class="item-price">₹${i.price}</div>
+      <div class="item-price">Rs.${i.price}</div>
     </div>`;
   }).join('') || `<div style="color:var(--text3);font-size:13px;grid-column:1/-1;padding:20px;">No items found</div>`;
 }
@@ -731,7 +741,7 @@ function renderCart() {
         <span class="qty-num">${i.qty}</span>
         <button class="qty-btn" onclick="changeQty(${i.id},1)">+</button>
       </div>
-      <div class="order-row-price">₹${(i.price*i.qty).toFixed(0)}</div>
+      <div class="order-row-price">Rs.${(i.price*i.qty).toFixed(0)}</div>
     </div>`).join('');
   calcBill();
 }
@@ -743,11 +753,11 @@ function calcBill() {
   const gstRate = settings.gstRate || 5;
   const gst = (sub-discAmt)*(gstRate/100);
   const total = sub-discAmt+gst;
-  document.getElementById('subtotalVal').textContent = `₹${sub.toFixed(2)}`;
-  document.getElementById('discountVal').textContent = `-₹${discAmt.toFixed(2)}`;
+  document.getElementById('subtotalVal').textContent = `Rs.${sub.toFixed(2)}`;
+  document.getElementById('discountVal').textContent = `-Rs.${discAmt.toFixed(2)}`;
   document.getElementById('gstLabel').textContent = `GST (${gstRate}%)`;
-  document.getElementById('gstVal').textContent = `₹${gst.toFixed(2)}`;
-  document.getElementById('totalVal').textContent = `₹${total.toFixed(2)}`;
+  document.getElementById('gstVal').textContent = `Rs.${gst.toFixed(2)}`;
+  document.getElementById('totalVal').textContent = `Rs.${total.toFixed(2)}`;
 }
 
 function clearOrder() {
@@ -786,31 +796,41 @@ function printBill() {
 
   const S = {
     c: 'text-align:center;display:block;width:100%;',
-    r: 'display:flex;justify-content:space-between;width:100%;margin:3px 0;font-size:12px;',
-    h: 'border:none;border-top:1px dashed #000;margin:6px 0;width:100%;',
+    r: 'display:flex;justify-content:space-between;width:100%;margin:3px 0;font-size:9pt;',
+    h: 'border:none;border-top:1px dashed #000;margin:5px 0;width:100%;',
   };
 
+  // Build items rows: name on first line, qty + amount on second line (safe for narrow 58mm)
+  const itemRows = cart.map(i => `
+    <div style="margin:4px 0;">
+      <div style="font-weight:600;font-size:9pt;">${i.name}</div>
+      <div style="${S.r}padding-left:4px;">
+        <span>x${i.qty}</span>
+        <span>Rs.${(i.price*i.qty).toFixed(2)}</span>
+      </div>
+    </div>`).join('');
+
   document.getElementById('printArea').innerHTML = `
-    <div style="font-family:Courier New,monospace;font-size:12px;color:#000;width:100%;padding:4px;">
-      <div style="${S.c}font-size:18px;font-weight:bold;margin-bottom:2px;">${settings.name}</div>
-      <div style="${S.c}font-size:11px;">${settings.address}</div>
-      <div style="${S.c}font-size:11px;">Ph: ${settings.phone}</div>
-      <div style="${S.c}font-size:11px;">GSTIN: ${settings.gst}</div>
+    <div style="font-family:'Courier New',Courier,monospace;font-size:9pt;color:#000;width:100%;padding:2px 3px;line-height:1.45;">
+      <div style="${S.c}font-size:13pt;font-weight:bold;margin-bottom:2px;">${settings.name}</div>
+      <div style="${S.c}font-size:8pt;">${settings.address}</div>
+      <div style="${S.c}font-size:8pt;">Ph: ${settings.phone}</div>
+      <div style="${S.c}font-size:8pt;">GSTIN: ${settings.gst}</div>
       <hr style="${S.h}">
       <div style="${S.r}"><span>Bill No: ${billNo}</span><span>${now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</span></div>
       <div style="${S.r}"><span>Table: ${table}</span><span>${now.toLocaleDateString('en-IN')}</span></div>
-      <div style="${S.r}"><span>Payment: ${payMode.toUpperCase()}</span></div>
+      <div style="font-size:9pt;margin:2px 0;">Payment: ${payMode.toUpperCase()}</div>
       <hr style="${S.h}">
-      <div style="${S.r}font-weight:bold;"><span>Item</span><span>Qty &nbsp; Amt</span></div>
-      ${cart.map(i=>`<div style="${S.r}"><span>${i.name}</span><span>x${i.qty} &nbsp; ₹${(i.price*i.qty).toFixed(2)}</span></div>`).join('')}
+      <div style="${S.r}font-weight:bold;border-bottom:1px solid #000;padding-bottom:3px;"><span>Item</span><span>Amt</span></div>
+      ${itemRows}
       <hr style="${S.h}">
-      <div style="${S.r}"><span>Subtotal</span><span>₹${sub.toFixed(2)}</span></div>
-      ${disc>0?`<div style="${S.r}"><span>Discount (${disc}%)</span><span>- ₹${discAmt.toFixed(2)}</span></div>`:''}
-      <div style="${S.r}"><span>GST (${gstRate}%)</span><span>₹${gst.toFixed(2)}</span></div>
+      <div style="${S.r}"><span>Subtotal</span><span>Rs.${sub.toFixed(2)}</span></div>
+      ${disc>0?`<div style="${S.r}"><span>Discount (${disc}%)</span><span>-Rs.${discAmt.toFixed(2)}</span></div>`:''}
+      <div style="${S.r}"><span>GST (${gstRate}%)</span><span>Rs.${gst.toFixed(2)}</span></div>
       <hr style="${S.h}">
-      <div style="${S.r}font-size:15px;font-weight:bold;"><span>TOTAL</span><span>₹${total.toFixed(2)}</span></div>
+      <div style="${S.r}font-size:11pt;font-weight:bold;"><span>TOTAL</span><span>Rs.${total.toFixed(2)}</span></div>
       <hr style="${S.h}">
-      <div style="${S.c}font-size:11px;margin-top:8px;">
+      <div style="${S.c}font-size:8pt;margin-top:8px;">
         <span style="display:block;font-weight:bold;">${settings.footer}</span>
         <span style="display:block;margin-top:4px;">*** Thank You! Visit Again ***</span>
       </div>
@@ -845,18 +865,18 @@ function printKOT() {
   if (cart.length === 0) { toast('Add items first', 'error'); return; }
   const table = document.getElementById('tableSelect').value;
   const now = new Date();
-  const S = { r:'display:flex;justify-content:space-between;width:100%;margin:4px 0;font-size:13px;', h:'border:none;border-top:1px dashed #000;margin:6px 0;width:100%;' };
+  const S = { r:'display:flex;justify-content:space-between;width:100%;margin:4px 0;font-size:9pt;', h:'border:none;border-top:1px dashed #000;margin:6px 0;width:100%;' };
   document.getElementById('printArea').innerHTML = `
-    <div style="font-family:Courier New,monospace;font-size:12px;color:#000;width:100%;padding:4px;">
-      <div style="text-align:center;font-size:22px;font-weight:bold;margin-bottom:4px;">** KOT **</div>
-      <div style="text-align:center;font-size:13px;margin-bottom:6px;">${settings.name}</div>
+    <div style="font-family:'Courier New',Courier,monospace;font-size:9pt;color:#000;width:100%;padding:2px 3px;line-height:1.45;">
+      <div style="text-align:center;font-size:14pt;font-weight:bold;margin-bottom:4px;">** KOT **</div>
+      <div style="text-align:center;font-size:9pt;margin-bottom:6px;">${settings.name}</div>
       <hr style="${S.h}">
       <div style="${S.r}"><span>Table: ${table}</span><span>${now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</span></div>
       <hr style="${S.h}">
-      <div style="${S.r}font-weight:bold;"><span>Item</span><span>Qty</span></div>
-      ${cart.map(i=>`<div style="${S.r}font-size:15px;font-weight:bold;margin:6px 0;"><span>${i.name}</span><span>x${i.qty}</span></div>`).join('')}
+      <div style="${S.r}font-weight:bold;border-bottom:1px solid #000;padding-bottom:3px;"><span>Item</span><span>Qty</span></div>
+      ${cart.map(i=>`<div style="${S.r}font-size:11pt;font-weight:bold;margin:6px 0;"><span>${i.name}</span><span>x${i.qty}</span></div>`).join('')}
       <hr style="${S.h}">
-      <div style="text-align:center;font-size:12px;margin-top:6px;">-- Kitchen Copy --</div>
+      <div style="text-align:center;font-size:8pt;margin-top:6px;">-- Kitchen Copy --</div>
     </div>`;
   window.print();
   toast('KOT sent to kitchen 🍳', 'success');
@@ -961,7 +981,7 @@ function renderTables() {
         <div class="status-dot"></div>
         <div class="t-num">${t}</div>
         <div class="t-label">${occupied?'Occupied':'Available'}</div>
-        ${occupied?`<div class="t-amount">₹${oOrder.total.toFixed(0)}</div>`:''}
+        ${occupied?`<div class="t-amount">Rs.${oOrder.total.toFixed(0)}</div>`:''}
       </div>`;
     }).join('');
 }
@@ -978,24 +998,15 @@ function goToTable(t) {
 function renderReports() {
   const total = orders.reduce((s,o) => s+o.total, 0);
   const items = orders.reduce((s,o) => s+o.items, 0);
-  document.getElementById('rTotalSales').textContent = `₹${total.toFixed(0)}`;
+  document.getElementById('rTotalSales').textContent = `Rs.${total.toFixed(0)}`;
   document.getElementById('rOrders').textContent = orders.length;
-  document.getElementById('rAvg').textContent = orders.length ? `₹${(total/orders.length).toFixed(0)}` : '₹0';
+  document.getElementById('rAvg').textContent = orders.length ? `Rs.${(total/orders.length).toFixed(0)}` : 'Rs.0';
   document.getElementById('rItems').textContent = items;
   document.getElementById('ordersTableBody').innerHTML = orders.length
     ? orders.slice().reverse().map(o => `
         <tr><td>${o.id}</td><td>${o.table}</td><td>${o.items}</td>
-        <td>${o.pay.toUpperCase()}</td><td style="color:var(--green);font-weight:600">₹${o.total.toFixed(2)}</td><td>${o.time}</td>
-        <td><button onclick="deleteOrder('${o.id}')" style="background:none;border:1px solid var(--border);color:var(--red);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px;" title="Delete this order">🗑</button></td></tr>`).join('')
-    : `<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:30px;">No orders yet</td></tr>`;
-}
-
-function deleteOrder(id) {
-  if (!confirm(`Delete order ${id}? This cannot be undone.`)) return;
-  orders = orders.filter(o => o.id !== id);
-  saveAll();
-  renderReports();
-  toast('Order deleted', 'error');
+        <td>${o.pay.toUpperCase()}</td><td style="color:var(--green);font-weight:600">Rs.${o.total.toFixed(2)}</td><td>${o.time}</td></tr>`).join('')
+    : `<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:30px;">No orders yet</td></tr>`;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1013,7 +1024,7 @@ function renderMgrGrid() {
       <div class="mgr-emoji">${i.emoji}</div>
       <div class="mgr-info"><div class="mgr-name">${i.name}</div><div class="mgr-cat">${i.cat}</div></div>
       <button class="toggle-veg ${i.type==='veg'?'veg-active':'nonveg-active'}" onclick="toggleType(${i.id})">${i.type==='veg'?'VEG':'NON-VEG'}</button>
-      <div class="mgr-price">₹${i.price}</div>
+      <div class="mgr-price">Rs.${i.price}</div>
       <button class="mgr-del" onclick="deleteItem(${i.id})">🗑</button>
     </div>`).join('') || `<div style="color:var(--text3);font-size:13px;padding:20px;">No items found</div>`;
 }
