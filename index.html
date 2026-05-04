@@ -306,18 +306,8 @@
   .print-area { display: none; }
   @media print {
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    body > *:not(#printArea) { display: none !important; }
-    body { background: #fff !important; margin: 0; padding: 0; }
-    .print-area {
-      display: block !important;
-      width: 100%;
-      font-family: 'Courier New', monospace;
-      font-size: 12px;
-      color: #000 !important;
-      background: #fff !important;
-      margin: 0;
-      padding: 0;
-    }
+    .topbar, .main, .toast-container, .modal-overlay, .sync-bar { display: none !important; }
+    .print-area { display: block !important; width: 100%; font-family: 'Courier New', monospace; font-size: 12px; color: #000 !important; background: #fff !important; }
   }
 
   /* ─── TOASTS ─── */
@@ -451,8 +441,8 @@
     </div>
     <div class="orders-table">
       <table>
-        <thead><tr><th>Bill No</th><th>Table</th><th>Items</th><th>Payment</th><th>Total</th><th>Time</th></tr></thead>
-        <tbody id="ordersTableBody"><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:30px;">No orders yet</td></tr></tbody>
+        <thead><tr><th>Bill No</th><th>Table</th><th>Items</th><th>Payment</th><th>Total</th><th>Time</th><th></th></tr></thead>
+        <tbody id="ordersTableBody"><tr><td colspan="7" style="text-align:center;color:var(--text3);padding:30px;">No orders yet</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -506,72 +496,16 @@
     <!-- Install as App -->
     <div class="settings-section">
       <h4>📱 Install as App</h4>
-      <p style="font-size:12px;color:var(--text2);margin-bottom:14px;">Install QuickBill on any device so it opens like a real app — no App Store needed, completely free!</p>
-
-      <!-- Auto install button for Chrome desktop/Android -->
-      <div id="autoInstallWrap" style="display:none;margin-bottom:14px;">
-        <div style="background:rgba(255,107,53,0.1);border:1px solid var(--accent);border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;">
-          <span style="font-size:28px;">🎉</span>
-          <div style="flex:1;">
-            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;">Ready to Install!</div>
-            <div style="font-size:11px;color:var(--text2);">Click below to install QuickBill as an app on this device</div>
-          </div>
-          <button class="save-settings-btn" id="installBtn" onclick="installApp()" style="white-space:nowrap;">📲 Install Now</button>
-        </div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px;">Install QuickBill on your phone or laptop like a native app — works offline too!</p>
+      <div style="font-size:12px;color:var(--text2);line-height:1.8;">
+        <strong style="color:var(--text);">📱 iPhone / iPad:</strong><br>
+        Open in Safari → Tap the Share button (□↑) → "Add to Home Screen"<br><br>
+        <strong style="color:var(--text);">🤖 Android:</strong><br>
+        Open in Chrome → Tap ⋮ menu → "Add to Home Screen" or "Install App"<br><br>
+        <strong style="color:var(--text);">💻 Laptop / Desktop:</strong><br>
+        Open in Chrome → Click the install icon (⊕) in the address bar
       </div>
-
-      <!-- Device-specific step-by-step guides -->
-      <div id="installGuideAndroid" style="display:none;">
-        <div style="background:var(--surface3);border-radius:10px;padding:14px;margin-bottom:10px;">
-          <div style="font-size:13px;font-weight:700;color:#4CAF82;margin-bottom:10px;">🤖 Android — Chrome (Detected)</div>
-          <div style="font-size:12px;color:var(--text2);line-height:2;">
-            <span style="color:var(--accent);font-weight:700;">Step 1</span> — Open this app in <strong style="color:var(--text);">Chrome browser</strong><br>
-            <span style="color:var(--accent);font-weight:700;">Step 2</span> — Tap the <strong style="color:var(--text);">⋮ three dots</strong> menu (top right)<br>
-            <span style="color:var(--accent);font-weight:700;">Step 3</span> — Tap <strong style="color:var(--text);">"Add to Home Screen"</strong> or <strong style="color:var(--text);">"Install App"</strong><br>
-            <span style="color:var(--accent);font-weight:700;">Step 4</span> — Tap <strong style="color:var(--text);">"Install"</strong> on the popup ✅
-          </div>
-        </div>
-      </div>
-
-      <div id="installGuideIOS" style="display:none;">
-        <div style="background:var(--surface3);border-radius:10px;padding:14px;margin-bottom:10px;">
-          <div style="font-size:13px;font-weight:700;color:#4A90D9;margin-bottom:10px;">🍎 iPhone / iPad (Detected)</div>
-          <div style="font-size:12px;color:var(--text2);line-height:2;">
-            <span style="color:var(--accent);font-weight:700;">Step 1</span> — Open this app in <strong style="color:var(--text);">Safari</strong> (not Chrome)<br>
-            <span style="color:var(--accent);font-weight:700;">Step 2</span> — Tap the <strong style="color:var(--text);">Share button ⬆</strong> at the bottom<br>
-            <span style="color:var(--accent);font-weight:700;">Step 3</span> — Scroll down and tap <strong style="color:var(--text);">"Add to Home Screen"</strong><br>
-            <span style="color:var(--accent);font-weight:700;">Step 4</span> — Tap <strong style="color:var(--text);">"Add"</strong> (top right) ✅
-          </div>
-          <div style="margin-top:10px;padding:8px;background:rgba(255,107,53,0.1);border-radius:6px;font-size:11px;color:var(--accent);">
-            ⚠️ Must use Safari on iPhone — Chrome on iPhone cannot install apps
-          </div>
-        </div>
-      </div>
-
-      <div id="installGuideDesktop">
-        <div style="background:var(--surface3);border-radius:10px;padding:14px;margin-bottom:10px;">
-          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;">💻 Laptop / Desktop — Chrome</div>
-          <div style="font-size:12px;color:var(--text2);line-height:2;">
-            <span style="color:var(--accent);font-weight:700;">Step 1</span> — Open this app in <strong style="color:var(--text);">Google Chrome</strong><br>
-            <span style="color:var(--accent);font-weight:700;">Step 2</span> — Look for the <strong style="color:var(--text);">install icon ⊕</strong> in the address bar (right side)<br>
-            <span style="color:var(--accent);font-weight:700;">Step 3</span> — Click it and select <strong style="color:var(--text);">"Install"</strong> ✅
-          </div>
-          <div style="margin-top:10px;padding:8px;background:rgba(255,107,53,0.1);border-radius:6px;font-size:11px;color:var(--accent);">
-            ⚠️ The install icon only appears when you open the file via a web server or hosting. If you double-click the file directly, use the step below.
-          </div>
-        </div>
-        <div style="background:var(--surface3);border-radius:10px;padding:14px;">
-          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px;">🌐 Host it Free on GitHub Pages</div>
-          <div style="font-size:12px;color:var(--text2);line-height:1.8;">
-            For full PWA install to work, host the file online for free:<br>
-            1. Go to <strong style="color:var(--accent);">github.com</strong> → Sign up free<br>
-            2. Create a new repository → Upload your 4 files<br>
-            3. Go to Settings → Pages → Enable GitHub Pages<br>
-            4. Open the generated URL in Chrome → Install icon appears!
-          </div>
-        </div>
-      </div>
-
+      <button class="save-settings-btn" id="installBtn" style="margin-top:14px;display:none;" onclick="installApp()">📲 Install App</button>
     </div>
   </div>
 
@@ -893,16 +827,15 @@ function printBill() {
 
   orders.push(order);
   saveAll();
+  window.print();
+  toast('Bill printed ✓', 'success');
 
-  // Delay so DOM updates before print dialog
-  setTimeout(() => {
-    window.print();
-    toast('Bill printed ✓', 'success');
-    if (settings.scriptUrl) {
-      syncOrderToSheets(order);
-    }
-    setTimeout(() => { clearOrder(); }, 500);
-  }, 100);
+  // Auto sync to Google Sheets
+  if (settings.scriptUrl) {
+    syncOrderToSheets(order);
+  }
+
+  setTimeout(() => { clearOrder(); }, 500);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -913,26 +846,20 @@ function printKOT() {
   const table = document.getElementById('tableSelect').value;
   const now = new Date();
   const S = { r:'display:flex;justify-content:space-between;width:100%;margin:4px 0;font-size:13px;', h:'border:none;border-top:1px dashed #000;margin:6px 0;width:100%;' };
-
   document.getElementById('printArea').innerHTML = `
     <div style="font-family:Courier New,monospace;font-size:12px;color:#000;width:100%;padding:4px;">
       <div style="text-align:center;font-size:22px;font-weight:bold;margin-bottom:4px;">** KOT **</div>
       <div style="text-align:center;font-size:13px;margin-bottom:6px;">${settings.name}</div>
       <hr style="${S.h}">
       <div style="${S.r}"><span>Table: ${table}</span><span>${now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</span></div>
-      <div style="${S.r}"><span>Date: ${now.toLocaleDateString('en-IN')}</span></div>
       <hr style="${S.h}">
       <div style="${S.r}font-weight:bold;"><span>Item</span><span>Qty</span></div>
       ${cart.map(i=>`<div style="${S.r}font-size:15px;font-weight:bold;margin:6px 0;"><span>${i.name}</span><span>x${i.qty}</span></div>`).join('')}
       <hr style="${S.h}">
       <div style="text-align:center;font-size:12px;margin-top:6px;">-- Kitchen Copy --</div>
     </div>`;
-
-  // Small delay so DOM updates fully before print dialog opens
-  setTimeout(() => {
-    window.print();
-    toast('KOT sent to kitchen 🍳', 'success');
-  }, 100);
+  window.print();
+  toast('KOT sent to kitchen 🍳', 'success');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1058,8 +985,17 @@ function renderReports() {
   document.getElementById('ordersTableBody').innerHTML = orders.length
     ? orders.slice().reverse().map(o => `
         <tr><td>${o.id}</td><td>${o.table}</td><td>${o.items}</td>
-        <td>${o.pay.toUpperCase()}</td><td style="color:var(--green);font-weight:600">₹${o.total.toFixed(2)}</td><td>${o.time}</td></tr>`).join('')
-    : `<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:30px;">No orders yet</td></tr>`;
+        <td>${o.pay.toUpperCase()}</td><td style="color:var(--green);font-weight:600">₹${o.total.toFixed(2)}</td><td>${o.time}</td>
+        <td><button onclick="deleteOrder('${o.id}')" style="background:none;border:1px solid var(--border);color:var(--red);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px;" title="Delete this order">🗑</button></td></tr>`).join('')
+    : `<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:30px;">No orders yet</td></tr>`;
+}
+
+function deleteOrder(id) {
+  if (!confirm(`Delete order ${id}? This cannot be undone.`)) return;
+  orders = orders.filter(o => o.id !== id);
+  saveAll();
+  renderReports();
+  toast('Order deleted', 'error');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1158,55 +1094,18 @@ function saveSettings() {
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredInstallPrompt = e;
-  // Show the auto-install button
-  const wrap = document.getElementById('autoInstallWrap');
-  if (wrap) wrap.style.display = 'block';
-  toast('📲 Tap Settings → Install to add app to your device!', 'info');
-});
-
-window.addEventListener('appinstalled', () => {
-  deferredInstallPrompt = null;
-  const wrap = document.getElementById('autoInstallWrap');
-  if (wrap) wrap.style.display = 'none';
-  toast('✅ QuickBill installed successfully!', 'success');
+  document.getElementById('installBtn').style.display = 'block';
 });
 
 function installApp() {
   if (deferredInstallPrompt) {
     deferredInstallPrompt.prompt();
-    deferredInstallPrompt.userChoice.then((choice) => {
-      if (choice.outcome === 'accepted') {
-        toast('✅ Installing QuickBill...', 'success');
-      }
+    deferredInstallPrompt.userChoice.then(() => {
       deferredInstallPrompt = null;
-      const wrap = document.getElementById('autoInstallWrap');
-      if (wrap) wrap.style.display = 'none';
+      document.getElementById('installBtn').style.display = 'none';
     });
   }
 }
-
-// Detect device type and show the right install guide
-function detectDeviceAndShowGuide() {
-  const ua = navigator.userAgent;
-  const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
-  const isAndroid = /Android/.test(ua);
-
-  if (isIOS) {
-    const el = document.getElementById('installGuideIOS');
-    const desk = document.getElementById('installGuideDesktop');
-    if (el) el.style.display = 'block';
-    if (desk) desk.style.display = 'none';
-  } else if (isAndroid) {
-    const el = document.getElementById('installGuideAndroid');
-    const desk = document.getElementById('installGuideDesktop');
-    if (el) el.style.display = 'block';
-    if (desk) desk.style.display = 'none';
-  }
-  // Desktop guide shows by default
-}
-
-// Run device detection when settings page is shown
-// (called via detectDeviceAndShowGuide() at init)
 
 // ═══════════════════════════════════════════════════════
 // TOAST
@@ -1229,15 +1128,10 @@ renderCart();
 updateTableChip();
 updateCartBadge();
 
-// Register Service Worker
+// Register Service Worker for offline support
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js')
-    .then(() => console.log('SW registered'))
-    .catch(e => console.log('SW error:', e));
+  navigator.serviceWorker.register('sw.js').catch(() => {});
 }
-
-// Detect device on load
-detectDeviceAndShowGuide();
 </script>
 </body>
 </html>
